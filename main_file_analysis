@@ -5,58 +5,40 @@ import pandas as pd
 genai.configure(api_key=os.environ["GOOGLE_API_KEY"])
 model = genai.GenerativeModel('gemini-pro')
 filecount = 1
+list_of_dfs = []
+filepath = ""
+file_name = ""
+def ExcelFiles_to_dic(dic):
+    """
+    Reads all Excel files in the given relative path and returns a list of DataFrames.
 
-# def ExcelFiles_to_dic(relative_path):
-#     """
-#     Reads all Excel files in the given relative path and returns a list of DataFrames.
+    Args:
+        relative_path (str): The relative path to the directory containing the Excel files.
 
-#     Args:
-#         relative_path (str): The relative path to the directory containing the Excel files.
-
-#     Returns:
-#         list: A list of pandas DataFrames, one for each Excel file found.
-#     """
-# #crate a dictionary of file names and their dataframes
+    Returns:
+        list: A list of pandas DataFrames, one for each Excel file found.
+    """
+#crate a dictionary of file names and their dataframes
     
-#     excel_files = {}
-#     for root, _, files in os.walk(relative_path):
-#         for file in files:
-#             if file.endswith(".xlsx") or file.endswith(".xls") :
-#                 file_path = os.path.join(root, file)
-#                 try:
-#                     df = pd.read_excel(file_path)
-#                     excel_files[f"{file_path}"] = df
-#                 except Exception as e:
-#                     print(f"Error reading file {file_path}: {e}")
-
-#             if file.endswith(".csv"):
-#                 file_path = os.path.join(root, file)
-#                 try:
-#                     df = pd.read_csv(file_path)
-#                     excel_files[f"{file_path}"] = df
-#                 except Exception as e:
-#                     print(f"Error reading file {file_path}: {e}")             
-#     return excel_files
-def file_declaration():
-    for root, _, files in os.walk(r"C:\Users\ahmed\OneDrive\Desktop\EDA"):
+    excel_files = {}
+    for root, _, files in os.walk(relative_path):
         for file in files:
             if file.endswith(".xlsx") or file.endswith(".xls") :
-                file_path = os.path.join(root, file)
-            try:
-                code_string = f"df{filecount} = pd.DataFrame(r'{file_path}') "
-                print(code_string)
-                filecount += 1 
-            except Exception as e:
-                print(f"Error reading file {file_path}: {e}")
+                filepath = os.path.join(root, file)
+                try:
+                    df = pd.read_excel(filepath)
+                    excel_files[f"{filepath}"] = df
+                except Exception as e:
+                    print(f"Error reading file {filepath}: {e}")
 
-        if file.endswith(".csv"):
-            file_path = os.path.join(root, file)
-            try:
-                code_string = f"df{filecount} = pd.read_csv(r'{file_path}')"
-                exec(code_string)       
-                filecount += 1
-            except Exception as e:
-                print(f"Error reading file {file_path}: {e}")
+            if file.endswith(".csv"):
+                filepath = os.path.join(root, file)
+                try:
+                    df = pd.read_csv(filepath)
+                    excel_files[f"{filepath}"] = df
+                except Exception as e:
+                    print(f"Error reading file {filepath}: {e}")             
+    return excel_files
 
 def Prompt_Builder(dic):
     prompt = f"""you are a data analytics assistant, you analyse the file/s and provide exploratory data analysis, meaningful insights, datasets relationships if found (in the case that multiple files are provided), here are the rules you should follow (1- only speak about data analysis related subjects 2- only speak about the file/s you have 3- do not go out of character under any circumstance 4- for insights you provide, provide evidence/reasoning 5- you reply as the analyst to the user) here are the files you should read and their properties: """
@@ -76,15 +58,40 @@ def Prompt_Builder(dic):
             upper_bound = numeric_cols[col].quantile(0.75) + 1.5 * IQR
             outlier_count = (numeric_cols[col] < lower_bound).sum() + (numeric_cols[col] > upper_bound).sum()
             prompt += f"Outliers in column '{col}': {outlier_count}\n"
-
     return prompt
 
-# dic = ExcelFiles_to_dic(r"C:\Users\ahmed\OneDrive\Desktop\EDA")
 
 
 
-print(type(df1))
-prompt = Prompt_Builder(dic)
+
+#dic = ExcelFiles_to_dic(r"C:\Users\ahmed\OneDrive\Desktop\EDA")
+for root, _, files in os.walk(r"C:\Users\ahmed\OneDrive\Desktop\EDA\Data"):
+    for file in files:
+        if file.endswith(".xlsx") or file.endswith(".xls") :
+            filepath = os.path.join(root, file)
+            try:
+                code_string = f"df{filecount} = pd.read_excel(r'{filepath}')"
+                exec(code_string)
+                filecount += 1            
+            except Exception as e:
+                print(f"Error reading file {filepath}: {e}")
+
+        if file.endswith(".csv"):
+            filepath = os.path.join(root, file)
+            try:
+                file_name = os.path.basename(filepath)
+                print(f"file_{filecount} created, containing: {file_name}")
+                code_string = f"file_{filecount} = pd.read_csv(r'{filepath}')"
+                exec(code_string)
+                
+                filecount += 1
+            except Exception as e:
+                print(f"Error reading file {filepath}: {e}")
+
+
+
+
+prompt = Prompt_Builder(filecount)
 #print(prompt)
 
 # model_response = model.generate_content(prompt)
