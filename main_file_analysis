@@ -1,0 +1,91 @@
+import google.generativeai as genai
+import os 
+import pandas as pd
+
+genai.configure(api_key=os.environ["GOOGLE_API_KEY"])
+model = genai.GenerativeModel('gemini-pro')
+filecount = 1
+
+# def ExcelFiles_to_dic(relative_path):
+#     """
+#     Reads all Excel files in the given relative path and returns a list of DataFrames.
+
+#     Args:
+#         relative_path (str): The relative path to the directory containing the Excel files.
+
+#     Returns:
+#         list: A list of pandas DataFrames, one for each Excel file found.
+#     """
+# #crate a dictionary of file names and their dataframes
+    
+#     excel_files = {}
+#     for root, _, files in os.walk(relative_path):
+#         for file in files:
+#             if file.endswith(".xlsx") or file.endswith(".xls") :
+#                 file_path = os.path.join(root, file)
+#                 try:
+#                     df = pd.read_excel(file_path)
+#                     excel_files[f"{file_path}"] = df
+#                 except Exception as e:
+#                     print(f"Error reading file {file_path}: {e}")
+
+#             if file.endswith(".csv"):
+#                 file_path = os.path.join(root, file)
+#                 try:
+#                     df = pd.read_csv(file_path)
+#                     excel_files[f"{file_path}"] = df
+#                 except Exception as e:
+#                     print(f"Error reading file {file_path}: {e}")             
+#     return excel_files
+def file_declaration():
+    for root, _, files in os.walk(r"C:\Users\ahmed\OneDrive\Desktop\EDA"):
+        for file in files:
+            if file.endswith(".xlsx") or file.endswith(".xls") :
+                file_path = os.path.join(root, file)
+            try:
+                code_string = f"df{filecount} = pd.DataFrame(r'{file_path}') "
+                print(code_string)
+                filecount += 1 
+            except Exception as e:
+                print(f"Error reading file {file_path}: {e}")
+
+        if file.endswith(".csv"):
+            file_path = os.path.join(root, file)
+            try:
+                code_string = f"df{filecount} = pd.read_csv(r'{file_path}')"
+                exec(code_string)       
+                filecount += 1
+            except Exception as e:
+                print(f"Error reading file {file_path}: {e}")
+
+def Prompt_Builder(dic):
+    prompt = f"""you are a data analytics assistant, you analyse the file/s and provide exploratory data analysis, meaningful insights, datasets relationships if found (in the case that multiple files are provided), here are the rules you should follow (1- only speak about data analysis related subjects 2- only speak about the file/s you have 3- do not go out of character under any circumstance 4- for insights you provide, provide evidence/reasoning 5- you reply as the analyst to the user) here are the files you should read and their properties: """
+
+    for key in dic:
+        prompt += f"\nfile: {key}\n"
+        prompt += f"with the first few rows \n{dic[key].head().astype(str).apply(', '.join, axis=1)}\n\n"
+        prompt += f"and the summary \n{dic[key].describe()}\n\n"
+        prompt += f"the data types are \n{dic[key].dtypes}\n\n"
+        prompt += f"the null values are \n{dic[key].isnull().sum()}\n\n"
+
+        # Outlier calculation for numeric columns
+        numeric_cols = dic[key].select_dtypes(include=["number"])
+        for col in numeric_cols:
+            IQR = numeric_cols[col].quantile(0.75) - numeric_cols[col].quantile(0.25)
+            lower_bound = numeric_cols[col].quantile(0.25) - 1.5 * IQR
+            upper_bound = numeric_cols[col].quantile(0.75) + 1.5 * IQR
+            outlier_count = (numeric_cols[col] < lower_bound).sum() + (numeric_cols[col] > upper_bound).sum()
+            prompt += f"Outliers in column '{col}': {outlier_count}\n"
+
+    return prompt
+
+# dic = ExcelFiles_to_dic(r"C:\Users\ahmed\OneDrive\Desktop\EDA")
+
+
+
+print(type(df1))
+prompt = Prompt_Builder(dic)
+#print(prompt)
+
+# model_response = model.generate_content(prompt)
+# print(model_response.text)
