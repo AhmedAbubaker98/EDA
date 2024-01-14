@@ -8,6 +8,8 @@ filecount = 1
 list_of_dfs = []
 filepath = ""
 file_name = ""
+numeric_cols = ""
+
 def ExcelFiles_to_dic(dic):
     """
     Reads all Excel files in the given relative path and returns a list of DataFrames.
@@ -40,28 +42,51 @@ def ExcelFiles_to_dic(dic):
                     print(f"Error reading file {filepath}: {e}")             
     return excel_files
 
-def Prompt_Builder(dic):
-    prompt = f"""you are a data analytics assistant, you analyse the file/s and provide exploratory data analysis, meaningful insights, datasets relationships if found (in the case that multiple files are provided), here are the rules you should follow (1- only speak about data analysis related subjects 2- only speak about the file/s you have 3- do not go out of character under any circumstance 4- for insights you provide, provide evidence/reasoning 5- you reply as the analyst to the user) here are the files you should read and their properties: """
-
-    for key in dic:
-        prompt += f"\nfile: {key}\n"
-        prompt += f"with the first few rows \n{dic[key].head().astype(str).apply(', '.join, axis=1)}\n\n"
-        prompt += f"and the summary \n{dic[key].describe()}\n\n"
-        prompt += f"the data types are \n{dic[key].dtypes}\n\n"
-        prompt += f"the null values are \n{dic[key].isnull().sum()}\n\n"
+def Prompt_Builder(count):
+    prompt = f"""You are Cora, an automated AI-powered data analysis software. You, Gemini, are at the heart of this system, responsible for analyzing datasets and providing insightful conclusions. """
+    
+    placeholder = ""
+    for i in range(1, count):
+        prompt += f"\nfile {i}:\n"
+        exec(f"placeholder = file_{i}.head().astype(str).apply(', '.join, axis=1)", {"placeholder": placeholder})
+        prompt += f"with the first few rows \n{placeholder}\n\n"
+        exec(f"placeholder = file_{i}.describe()")
+        prompt += f"and the summary \n{placeholder}\n\n"
+        exec(f"placeholder = file_{i}.dtypes")
+        prompt += f"the data types are \n{placeholder}\n\n"
+        exec(f"placeholder = file_{i}.isnull().sum()")
+        prompt += f"the null values are \n{placeholder}\n\n"
 
         # Outlier calculation for numeric columns
-        numeric_cols = dic[key].select_dtypes(include=["number"])
+        exec(f"numeric_cols = file_{i}.select_dtypes(include=['number'])")
         for col in numeric_cols:
             IQR = numeric_cols[col].quantile(0.75) - numeric_cols[col].quantile(0.25)
             lower_bound = numeric_cols[col].quantile(0.25) - 1.5 * IQR
             upper_bound = numeric_cols[col].quantile(0.75) + 1.5 * IQR
             outlier_count = (numeric_cols[col] < lower_bound).sum() + (numeric_cols[col] > upper_bound).sum()
             prompt += f"Outliers in column '{col}': {outlier_count}\n"
+
+    # for key in dic:
+    #     prompt += f"\nfile: {key}\n"
+    #     prompt += f"with the first few rows \n{dic[key].head().astype(str).apply(', '.join, axis=1)}\n\n"
+    #     prompt += f"and the summary \n{dic[key].describe()}\n\n"
+    #     prompt += f"the data types are \n{dic[key].dtypes}\n\n"
+    #     prompt += f"the null values are \n{dic[key].isnull().sum()}\n\n"
+
+    #     # Outlier calculation for numeric columns
+    #     numeric_cols = dic[key].select_dtypes(include=["number"])
+    #     for col in numeric_cols:
+    #         IQR = numeric_cols[col].quantile(0.75) - numeric_cols[col].quantile(0.25)
+    #         lower_bound = numeric_cols[col].quantile(0.25) - 1.5 * IQR
+    #         upper_bound = numeric_cols[col].quantile(0.75) + 1.5 * IQR
+    #         outlier_count = (numeric_cols[col] < lower_bound).sum() + (numeric_cols[col] > upper_bound).sum()
+    #         prompt += f"Outliers in column '{col}': {outlier_count}\n"
     return prompt
 
 
 
+for i in range(1, 100):
+    exec(f"global file_{i}")
 
 
 #dic = ExcelFiles_to_dic(r"C:\Users\ahmed\OneDrive\Desktop\EDA")
@@ -80,7 +105,7 @@ for root, _, files in os.walk(r"C:\Users\ahmed\OneDrive\Desktop\EDA\Data"):
             filepath = os.path.join(root, file)
             try:
                 file_name = os.path.basename(filepath)
-                print(f"file_{filecount} created, containing: {file_name}")
+                print(f"file_{filecount} created, containing: {file_name}\n")
                 code_string = f"file_{filecount} = pd.read_csv(r'{filepath}')"
                 exec(code_string)
                 
@@ -92,7 +117,7 @@ for root, _, files in os.walk(r"C:\Users\ahmed\OneDrive\Desktop\EDA\Data"):
 
 
 prompt = Prompt_Builder(filecount)
-#print(prompt)
+print(prompt)
 
 # model_response = model.generate_content(prompt)
 # print(model_response.text)
