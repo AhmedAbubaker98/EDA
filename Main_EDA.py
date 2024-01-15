@@ -8,6 +8,63 @@ from PIL import Image
 from pathlib import Path
 import os 
 
+def read_csv_files(directory_path):
+    data_frames = []   # List to store DataFrames
+    file_names = []   # List to store file names
+
+    try:
+        # Iterate over each file in the directory
+        for filename in os.listdir(directory_path):
+            if filename.endswith(".csv"):
+                file_path = os.path.join(directory_path, filename)
+
+                # Read the CSV file into a DataFrame
+                df = pd.read_csv(file_path)
+
+                # Append the DataFrame to the list
+                data_frames.append(df)
+
+                # Append the file name to the list
+                file_names.append(filename)
+
+        return data_frames, file_names
+
+    except Exception as e:
+        print(f"Error occurred: {e}")
+        return None, None
+    
+def GraphPromptBuilder(ProblemStatement, dfs, filenames):
+    prompt = f"""You are Cora, an automated AI-powered data analysis software. You, Gemini, are at the heart of this system, responsible for providing code for simple readable graphs. 
+    based on the following problem statement '{ProblemStatement}' provide 3 graphs that would extract relevant information from the data files:
+    """
+
+    for i, (df, filename) in enumerate(zip(dfs, filenames), start=1):
+        prompt += f"""
+        {filename}:
+        1. head is\n {df.head()}
+        2. the data types are\n {df.dtypes}
+        3. the null values are\n {df.isnull().sum()}
+        4. the summary is\n {df.describe()}
+        \n
+        """
+
+    prompt += """
+    remember:
+    1. only write the code for the graphs, not the graphs themselves.
+    2. your reply in its entirety will be executed in a python environment, therefore, write all of the code together.
+    3. available libraries are pandas, numpy, seaborn, matplotlib, additionally do not forget to import the datasets.
+    4. write '#1 start' and '#1 end' at the start end of the first graph, '#2 start' and '#2 end' at the start end of the second graph, '#3 start' and '#3 end' at the start end of the third graph.
+    """
+
+    return prompt
+
+def AnalysisPromptBuilder(ProblemStatement):
+    prompt = f"""You are Cora, an automated AI-powered data analysis software. You, Gemini, are at the heart of this system, responsible for reading given graphs 
+    and providing analysis based on the problem statement, '{ProblemStatement}' here are the graph(s) that you should extract relevant information from the provide image(s).
+     """
+    return prompt
+
+
 generation_config = {
   "temperature": 0,
   "top_p": 1,
@@ -34,57 +91,21 @@ safety_settings = [
   }
 ]
 
+
 client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
 genai.configure(api_key=os.environ["GOOGLE_API_KEY"])
 model = genai.GenerativeModel(model_name="gemini-pro-vision",
                               generation_config=generation_config,
                               safety_settings=safety_settings)
 
-def GraphPromptBuilder(PS, df1, df2, df3, f1, f2, f3):
-    prompt = f"""You are Cora, an automated AI-powered data analysis software. You, Gemini, are at the heart of this system, responsible for providing code for simple readable graphs. 
-    based on the following problem statement '{PS}' provide 3 graphs that would extract relevant information from the data files: {f1}, {f2}, {f3}.
-    
-    {f1}:
-    1. head is\n {df1.head()}
-    2. the data types are\n {df1.dtypes}
-    3. the null values are\n {df1.isnull().sum()}
-    4. the summary is\n {df1.describe()}
+# Cab_Data = pd.read_csv('Cab_Data.csv')
+# City = pd.read_csv('City.csv')
+# Customer_ID = pd.read_csv('Customer_ID.csv')
+# Transaction_ID = pd.read_csv('Transaction_ID.csv')
 
-    {f2}:
-    1. head is\n {df2.head()}
-    2. the data types are\n {df2.dtypes}
-    3. the null values are\n {df2.isnull().sum()}
-    4. the summary is\n {df2.describe()}
-
-    {f3}:
-    1. head is\n {df3.head()}
-    2. the data types are\n {df3.dtypes}
-    3. the null values are\n {df3.isnull().sum()}
-    4. the summary is\n {df3.describe()}
-    
-    remember:
-    1. only write the code for the graphs, not the graphs themselves.
-    2. your reply in its entirety will be executed in a python environment, therefore, write all of the code at once.
-    3. available libraries are pandas, numpy, seaborn, matplotlib.
-    4. write '#1 start' and '#1 end' at the start end of the first graph, '#2 start' and '#2 end' at the start end of the second graph, '#3 start' and '#3 end' at the start end of the third graph.
-     """
-    return prompt
-
-def AnalysisPromptBuilder(PS):
-    prompt = f"""You are Cora, an automated AI-powered data analysis software. You, Gemini, are at the heart of this system, responsible for reading given graphs 
-    and providing analysis based on the problem statement, '{PS}' here are the graph(s) that you should extract relevant information from the provide image(s).
-     """
-    return prompt
-
-
-Cab_Data = pd.read_csv('Cab_Data.csv')
-City = pd.read_csv('City.csv')
-Customer_ID = pd.read_csv('Customer_ID.csv')
-Transaction_ID = pd.read_csv('Transaction_ID.csv')
-
-PS = "I want to know which company is the best for investing, Pink Cab or Yellow Cab."
-
-prompt1 = GraphPromptBuilder(PS, Cab_Data, City, Transaction_ID, "Cab_Data.csv" , "City.csv", "Transaction_ID.csv")
+ProblemStatement = "I want to know which age group has a higher survival rate, and why?"
+data_frames, file_names = read_csv_files(r"C:\Users\ahmed\OneDrive\Desktop\EDA")
+prompt1 = GraphPromptBuilder(ProblemStatement, data_frames, file_names)
 
 #OPENAI Send the prompt to the model for completion
 chat_completion = client.chat.completions.create(
@@ -94,21 +115,25 @@ chat_completion = client.chat.completions.create(
 
 #clean the response from anything that is not code
 a = chat_completion.choices[0].message.content.strip()
+print(a)
+print("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
 a = a[a.find("import"):]
 a = a.replace("```python", "")
 a = a.replace("```", "")
 a = a.replace("plt.show()", "")
+#a = a.replace('plt.savefig("graph1.png"', 'plt.savefig("graph1.png")')
 
 a = a.replace("#1 end", 'plt.savefig("graph1.png")')
 a = a.replace("#2 end", 'plt.savefig("graph2.png")')
 a = a.replace("#3 end", 'plt.savefig("graph3.png")\nggg')
 a = a[:a.find("ggg")]
 
+print("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
 print(a)
 exec(a)
 
 #GOOGLE GMEINI
-prompt2 = AnalysisPromptBuilder(PS)
+prompt2 = AnalysisPromptBuilder(ProblemStatement)
 
 #convert graph to base64
 graph1 = Image.open("graph1.png")
