@@ -1,0 +1,46 @@
+import pandas as pd
+import matplotlib.pyplot as plt
+import mpld3
+
+# Read the Titanic dataset
+titanic_data = pd.read_csv('Titanic.csv')
+
+# Extract the age group with the most deaths
+age_group_deaths = titanic_data.groupby(pd.cut(titanic_data['Age'], bins=[0, 10, 20, 30, 40, 50, 60, 70, 80]))['2urvived'].sum()
+
+# Create a single figure with three subplots
+fig, axes = plt.subplots(nrows=1, ncols=3, figsize=(15, 5))
+
+# Graph 1: Bar chart showing the number of deaths per age group
+#1 start
+age_group_deaths.plot(kind='bar', ax=axes[0])
+axes[0].set_title('Number of Deaths per Age Group')
+axes[0].set_xlabel('Age Group')
+axes[0].set_ylabel('Number of Deaths')
+axes[0].tick_params(rotation=45)
+axes[0].text(0.5, -0.15, 'Text Box 1: Some specific text here', size=10, ha="center", transform=axes[0].transAxes)
+#1 end
+
+# Graph 2: Pie chart showing the proportion of deaths in each age group
+#2 start
+age_group_deaths.plot(kind='pie', autopct='%1.1f%%', ax=axes[1])
+axes[1].set_title('Proportion of Deaths in Each Age Group')
+axes[1].set_ylabel('')
+axes[1].text(0.5, -0.15, 'Text Box 2: Another piece of text', size=10, ha="center", transform=axes[1].transAxes)
+#2 end
+
+# Graph 3: Line chart showing the trend of deaths across different age groups
+#3 start
+age_group_deaths.plot(kind='line', marker='o', ax=axes[2])
+axes[2].set_title('Trend of Deaths Across Age Groups')
+axes[2].set_xlabel('Age Group')
+axes[2].set_ylabel('Number of Deaths')
+axes[2].tick_params(rotation=45)
+axes[2].text(0.5, -0.15, 'Text Box 3: Additional text here', size=10, ha="center", transform=axes[2].transAxes)
+#3 end
+
+# Adjust layout to prevent overlap
+plt.tight_layout()
+
+# Show the combined plot
+mpld3.show()

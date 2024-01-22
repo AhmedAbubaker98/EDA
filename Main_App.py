@@ -8,7 +8,16 @@ from PIL import Image
 from pathlib import Path
 import os 
 
-def read_csv_files(directory_path):
+def setup_models():
+  # Load the models
+  client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
+  genai.configure(api_key=os.environ["GOOGLE_API_KEY"])
+  model = genai.GenerativeModel(model_name="gemini-pro-vision",
+                              generation_config=generation_config,
+                              safety_settings=safety_settings)
+  return model, client
+    
+def read_files(directory_path):
     data_frames = []   # List to store DataFrames
     file_names = []   # List to store file names
 
@@ -26,7 +35,39 @@ def read_csv_files(directory_path):
 
                 # Append the file name to the list
                 file_names.append(filename)
+            if filename.endswith(".xlsx") or filename.endswith(".xls") or filename.endswith(".xlsm"):
+                file_path = os.path.join(directory_path, filename)
 
+                # Read the CSV file into a DataFrame
+                df = pd.read_excel(file_path)
+
+                # Append the DataFrame to the list
+                data_frames.append(df)
+
+                # Append the file name to the list
+                file_names.append(filename)
+            if filename.endswith(".json"):
+                file_path = os.path.join(directory_path, filename)
+
+                # Read the CSV file into a DataFrame
+                df = pd.read_json(file_path)
+
+                # Append the DataFrame to the list
+                data_frames.append(df)
+
+                # Append the file name to the list
+                file_names.append(filename)
+            if filename.endswith(".txt"):
+                file_path = os.path.join(directory_path, filename)
+
+                # Read the CSV file into a DataFrame
+                df = pd.read_csv(file_path, sep="\t")
+
+                # Append the DataFrame to the list
+                data_frames.append(df)
+
+                # Append the file name to the list
+                file_names.append(filename)
         return data_frames, file_names
 
     except Exception as e:
@@ -52,7 +93,7 @@ def GraphPromptBuilder(ProblemStatement, dfs, filenames):
     remember:
     1. only write the code for the graphs, not the graphs themselves.
     2. your reply in its entirety will be executed in a python environment, therefore, write all of the code together.
-    3. available libraries are pandas, numpy, seaborn, matplotlib, additionally do not forget to import the datasets.
+    3. available libraries are pandas, numpy, seaborn, matplotlib, additionally do not forget to import the datasets and remember that there maybe multiple file types.
     4. write '#1 start' and '#1 end' at the start end of the first graph, '#2 start' and '#2 end' at the start end of the second graph, '#3 start' and '#3 end' at the start end of the third graph.
     """
 
@@ -60,7 +101,12 @@ def GraphPromptBuilder(ProblemStatement, dfs, filenames):
 
 def AnalysisPromptBuilder(ProblemStatement):
     prompt = f"""You are Cora, an automated AI-powered data analysis software. You, Gemini, are at the heart of this system, responsible for reading given graphs 
-    and providing analysis based on the problem statement, '{ProblemStatement}' here are the graph(s) that you should extract relevant information from the provide image(s).
+    and providing analysis based on the problem statement, '{ProblemStatement}' here are the graph(s) that you should extract relevant information from the provided image(s).
+    structure your reply as follows:
+    1- graph 1 analysis
+    2- graph 2 analysis
+    3- graph 3 analysis
+    4- conclusion
      """
     return prompt
 
@@ -91,20 +137,10 @@ safety_settings = [
   }
 ]
 
+model, client = setup_models()
 
-client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
-genai.configure(api_key=os.environ["GOOGLE_API_KEY"])
-model = genai.GenerativeModel(model_name="gemini-pro-vision",
-                              generation_config=generation_config,
-                              safety_settings=safety_settings)
-
-# Cab_Data = pd.read_csv('Cab_Data.csv')
-# City = pd.read_csv('City.csv')
-# Customer_ID = pd.read_csv('Customer_ID.csv')
-# Transaction_ID = pd.read_csv('Transaction_ID.csv')
-
-ProblemStatement = "I want to know which age group has a higher survival rate, and why?"
-data_frames, file_names = read_csv_files(r"C:\Users\ahmed\OneDrive\Desktop\EDA")
+ProblemStatement = "what was the most likely age group to die,and why?"
+data_frames, file_names = read_files(r"C:\Users\ahmed\OneDrive\Desktop\EDA")
 prompt1 = GraphPromptBuilder(ProblemStatement, data_frames, file_names)
 
 #OPENAI Send the prompt to the model for completion
@@ -115,20 +151,17 @@ chat_completion = client.chat.completions.create(
 
 #clean the response from anything that is not code
 a = chat_completion.choices[0].message.content.strip()
-print(a)
-print("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
+
 a = a[a.find("import"):]
 a = a.replace("```python", "")
 a = a.replace("```", "")
 a = a.replace("plt.show()", "")
-#a = a.replace('plt.savefig("graph1.png"', 'plt.savefig("graph1.png")')
 
-a = a.replace("#1 end", 'plt.savefig("graph1.png")')
-a = a.replace("#2 end", 'plt.savefig("graph2.png")')
-a = a.replace("#3 end", 'plt.savefig("graph3.png")\nggg')
+a = a.replace("#1 end", 'plt.savefig("graph1.png")  ')
+a = a.replace("#2 end", 'plt.savefig("graph2.png")  ')
+a = a.replace("#3 end", 'plt.savefig("graph3.png")  \nggg')
 a = a[:a.find("ggg")]
 
-print("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
 print(a)
 exec(a)
 
